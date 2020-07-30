@@ -24,6 +24,25 @@ exports.createPost = async (req, res) => {
   }
 };
 
+//@desc     get post by user
+//@route    GET /api/post/:id
+//@access   private
+exports.getUserPost = async (req, res) => {
+  try {
+    const post = await Post.find({ user: req.user.id });
+    if (post < 1) return util.failureResponse(res, 200, `no post found`);
+    return util.successResponse(res, 200, 'post fetch', post);
+  } catch (error) {
+    if (error.kind == 'ObjectId')
+      return util.failureResponse(
+        res,
+        400,
+        `no post found with the id of ${req.params.id}`
+      );
+    return util.failureResponse(res, 500, 'internal server error');
+  }
+};
+
 //@desc     get all posts
 //@route    GET /api/post
 //@access   private
@@ -93,11 +112,7 @@ exports.votePost = async (req, res) => {
       return util.successResponse(res, 200, 'vote', post.votes.length);
     }
     if (vote.length > 0) {
-      const spliceIndex = post.votes
-        .map(vote => vote.user)
-        .indexOf(req.user.id);
-
-      post.votes.splice(spliceIndex, 1);
+      post.votes = post.votes.filter(vote => vote.user != req.user.id);
       await post.save();
       return util.successResponse(res, 200, 'unvote', post.votes.length);
     }
@@ -149,18 +164,39 @@ exports.commentPosts = async (req, res) => {
   }
 };
 
-//@desc     delete comme on a post
+//@desc     delete comment on a post
 //@route    DELETE /api/post/comment/:id/:comment_id
 //@access   private
 exports.deleteComment = async (req, res) => {
   try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return util.failureResponse(res, 400, 'post does not exist');
+    const comment = post.comments.find(
+      comment => comment.id === req.params.comment_id
+    );
+    if (!comment)
+      return util.failureResponse(res, 400, 'comments does not exist');
+    if (
+      comment.user.toString() != req.user.id &&
+      req.user.id != post.user.toString()
+    )
+      return util.failureResponse(
+        res,
+        401,
+        'unauthorized to delete this comment'
+      );
+
+    post.comments = post.comments.filter(
+      comment => comment.id != req.params.comment_id
+    );
+    await post.save();
+    return util.successResponse(res, 200, 'comment deleted', post.comments);
   } catch (error) {
-    console.log(error);
     if (error.kind == 'ObjectId')
       return util.failureResponse(
         res,
         400,
-        `no post found with the id of ${req.params.id}`
+        `no post found or comment with the id of ${req.params.id}`
       );
     return util.failureResponse(res, 500, 'internal server error');
   }

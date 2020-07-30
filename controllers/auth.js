@@ -83,3 +83,22 @@ exports.deleteuser = async (req, res, next) => {
     return util.failureResponse(res, 500, 'internal server error');
   }
 };
+
+//@desc     Get logged in user
+//@route    POST api/auth/getme
+//@access   private
+exports.getLoggedUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user)
+      return util.failureResponse(
+        res,
+        400,
+        `no account found with the id of ${req.user.id}`
+      );
+
+    return util.successResponse(res, 200, 'success', user);
+  } catch (error) {
+    return util.failureResponse(res, 500, 'internal server error');
+  }
+};

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const bcrypt = require('bcryptjs');
+const gravatar = require('gravatar');
+const normalize = require('normalize-url');
 
 const userSchema = new Schema({
   name: {
@@ -10,6 +12,9 @@ const userSchema = new Schema({
   email: {
     type: String,
     required: true,
+  },
+  avatar: {
+    type: String,
   },
   password: {
     type: String,
@@ -30,6 +35,18 @@ const userSchema = new Schema({
 userSchema.pre('save', async function (next) {
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+userSchema.pre('save', async function (next) {
+  this.avatar = normalize(
+    gravatar.url(this.email, {
+      s: '200',
+      r: 'pg',
+      d: 'mm',
+    }),
+    { forceHttps: true }
+  );
   next();
 });
 
